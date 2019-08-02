@@ -607,7 +607,7 @@ var StreamReader = function() {
 
 StreamReader.prototype.put = function(buffer) {
   if (!buffer || buffer.length === 0) return;
-  if (!buffer.copy) buffer = Buffer.alloc(buffer.length, buffer, 'utf-8');
+  if (!buffer.copy) buffer = Buffer.alloc(buffer.length, buffer);
   this._queue.push(buffer);
   this._queueSize += buffer.length;
 };
@@ -2801,7 +2801,7 @@ var instance = {
 
     if (typeof buffer !== 'string') buffer = buffer.toString();
 
-    var payload = Buffer.alloc(buffer, 'utf8'),
+    var payload = Buffer.alloc(buffer.length, buffer, 'utf8'),
         frame   = Buffer.alloc(payload.length + 2);
 
     frame[0] = 0x00;
@@ -2816,7 +2816,8 @@ var instance = {
     var start   = 'HTTP/1.1 101 Web Socket Protocol Handshake',
         headers = [start, this._headers.toString(), ''];
 
-    return Buffer.alloc(headers.join('\r\n'), 'utf8');
+    var headers = headers.join('\r\n')
+    return Buffer.alloc(headers.length, headers, 'utf8');
   },
 
   _parseLeadingByte: function(octet) {
@@ -2909,8 +2910,9 @@ var instance = {
 
     var start   = 'HTTP/1.1 101 WebSocket Protocol Handshake',
         headers = [start, this._headers.toString(), ''];
-
-    return Buffer.alloc(headers.join('\r\n'), 'binary');
+    
+    var hdrs = headers.join('\r\n')
+    return Buffer.alloc(hdrs.length, hdrs, 'utf8');
   },
 
   _handshakeSignature: function() {
@@ -2921,7 +2923,7 @@ var instance = {
 
     buffer.writeUInt32BE(this._keyValues[0], 0);
     buffer.writeUInt32BE(this._keyValues[1], 4);
-    Buffer.alloc(this._body).copy(buffer, 8, 0, this.BODY_SIZE);
+    Buffer.alloc(this._body.length, this._body).copy(buffer, 8, 0, this.BODY_SIZE);
 
     md5.update(buffer);
     return Buffer.alloc(md5.digest('binary'), 'binary');
