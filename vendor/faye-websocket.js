@@ -607,14 +607,14 @@ var StreamReader = function() {
 
 StreamReader.prototype.put = function(buffer) {
   if (!buffer || buffer.length === 0) return;
-  if (!buffer.copy) buffer = new Buffer(buffer);
+  if (!buffer.copy) buffer = Buffer.alloc(buffer.length, buffer, 'utf-8');
   this._queue.push(buffer);
   this._queueSize += buffer.length;
 };
 
 StreamReader.prototype.read = function(length) {
   if (length > this._queueSize) return null;
-  if (length === 0) return new Buffer(0);
+  if (length === 0) return Buffer.alloc(0);
 
   this._queueSize -= length;
 
@@ -666,7 +666,7 @@ StreamReader.prototype.eachByte = function(callback, context) {
 StreamReader.prototype._concat = function(buffers, length) {
   if (Buffer.concat) return Buffer.concat(buffers, length);
 
-  var buffer = new Buffer(length),
+  var buffer = Buffer.alloc(length),
       offset = 0;
 
   for (var i = 0, n = buffers.length; i < n; i++) {
@@ -699,7 +699,7 @@ var Client = function(_url, options) {
   this._http      = new HttpParser('response');
 
   var uri  = url.parse(this.url),
-      auth = uri.auth && new Buffer(uri.auth, 'utf8').toString('base64');
+      auth = uri.auth && Buffer.alloc(uri.length, uri.auth).toString('base64');
 
   if (this.VALID_PROTOCOLS.indexOf(uri.protocol) < 0)
     throw new Error(this.url + ' is not a valid WebSocket URL');
@@ -759,8 +759,8 @@ var instance = {
 
     var start   = 'GET ' + this._pathname + ' HTTP/1.1',
         headers = [start, this._headers.toString(), ''];
-
-    return new Buffer(headers.join('\r\n'), 'utf8');
+    var headers = headers.join('\r\n');
+    return Buffer.alloc(headers.length, headers, 'utf8');
   },
 
   _failHandshake: function(message) {
@@ -952,7 +952,7 @@ HttpParser.prototype.parse = function(chunk) {
   if (this._complete)
     this.body = (consumed < chunk.length)
               ? chunk.slice(consumed)
-              : new Buffer(0);
+              : Buffer.alloc(0);
 };
 
 module.exports = HttpParser;
@@ -1599,7 +1599,7 @@ var instance = {
     if (this.readyState <= 0) return this._queue([buffer, type, code]);
     if (this.readyState > 2) return false;
 
-    if (buffer instanceof Array)    buffer = new Buffer(buffer);
+    if (buffer instanceof Array)    buffer = Buffer.alloc(buffer.length, buffer);
     if (typeof buffer === 'number') buffer = buffer.toString();
 
     var message = new Message(),
@@ -1609,11 +1609,11 @@ var instance = {
     message.rsv1   = message.rsv2 = message.rsv3 = false;
     message.opcode = this.OPCODES[type || (isText ? 'text' : 'binary')];
 
-    payload = isText ? new Buffer(buffer, 'utf8') : buffer;
+    payload = isText ? Buffer.alloc(buffer.length, buffer, 'utf8') : buffer;
 
     if (code) {
       copy = payload;
-      payload = new Buffer(2 + copy.length);
+      payload = Buffer.alloc(2 + copy.length);
       payload.writeUInt16BE(code, 0);
       copy.copy(payload, 2);
     }
@@ -1651,7 +1651,7 @@ var instance = {
     var length = frame.length,
         header = (length <= 125) ? 2 : (length <= 65535 ? 4 : 10),
         offset = header + (frame.masked ? 4 : 0),
-        buffer = new Buffer(offset + length),
+        buffer = Buffer.alloc(offset + length),
         masked = frame.masked ? this.MASK : 0;
 
     buffer[0] = (frame.final ? this.FIN : 0) |
@@ -1693,7 +1693,7 @@ var instance = {
     var start   = 'HTTP/1.1 101 Switching Protocols',
         headers = [start, this._headers.toString(), ''];
 
-    return new Buffer(headers.join('\r\n'), 'utf8');
+    return Buffer.alloc(headers.join('\r\n'), 'utf8');
   },
 
   _shutdown: function(code, reason, error) {
@@ -2476,7 +2476,7 @@ var instance = {
   read: function() {
     if (this.data) return this.data;
 
-    this.data  = new Buffer(this.length);
+    this.data  = Buffer.alloc(this.length);
     var offset = 0;
 
     for (var i = 0, n = this._chunks.length; i < n; i++) {
@@ -2531,7 +2531,7 @@ var Proxy = function(client, origin, options) {
   this._headers.set('Connection', 'keep-alive');
   this._headers.set('Proxy-Connection', 'keep-alive');
 
-  var auth = this._url.auth && new Buffer(this._url.auth, 'utf8').toString('base64');
+  var auth = this._url.auth && Buffer.alloc(this._url.auth, 'utf8').toString('base64');
   if (auth) this._headers.set('Proxy-Authorization', 'Basic ' + auth);
 };
 util.inherits(Proxy, Stream);
@@ -2553,7 +2553,7 @@ var instance = {
 
     var headers = [start, this._headers.toString(), ''];
 
-    this.emit('data', new Buffer(headers.join('\r\n'), 'utf8'));
+    this.emit('data', Buffer.alloc(headers.join('\r\n'), 'utf8'));
     return true;
   },
 
@@ -2777,7 +2777,7 @@ var instance = {
         case 2:
           if (octet === 0xFF) {
             this._stage = 0;
-            message = new Buffer(this._buffer).toString('utf8', 0, this._buffer.length);
+            message = Buffer.alloc(this._buffer).toString('utf8', 0, this._buffer.length);
             this.emit('message', new Base.MessageEvent(message));
           }
           else {
@@ -2801,8 +2801,8 @@ var instance = {
 
     if (typeof buffer !== 'string') buffer = buffer.toString();
 
-    var payload = new Buffer(buffer, 'utf8'),
-        frame   = new Buffer(payload.length + 2);
+    var payload = Buffer.alloc(buffer, 'utf8'),
+        frame   = Buffer.alloc(payload.length + 2);
 
     frame[0] = 0x00;
     frame[payload.length + 1] = 0xFF;
@@ -2816,7 +2816,7 @@ var instance = {
     var start   = 'HTTP/1.1 101 Web Socket Protocol Handshake',
         headers = [start, this._headers.toString(), ''];
 
-    return new Buffer(headers.join('\r\n'), 'utf8');
+    return Buffer.alloc(headers.join('\r\n'), 'utf8');
   },
 
   _parseLeadingByte: function(octet) {
@@ -2882,7 +2882,7 @@ var instance = {
 
   close: function() {
     if (this.readyState === 3) return false;
-    this._write(new Buffer([0xFF, 0x00]));
+    this._write(Buffer.alloc([0xFF, 0x00]));
     this.readyState = 3;
     this.emit('close', new Base.CloseEvent(null, null));
     return true;
@@ -2910,21 +2910,21 @@ var instance = {
     var start   = 'HTTP/1.1 101 WebSocket Protocol Handshake',
         headers = [start, this._headers.toString(), ''];
 
-    return new Buffer(headers.join('\r\n'), 'binary');
+    return Buffer.alloc(headers.join('\r\n'), 'binary');
   },
 
   _handshakeSignature: function() {
     if (this._body.length < this.BODY_SIZE) return null;
 
     var md5    = crypto.createHash('md5'),
-        buffer = new Buffer(8 + this.BODY_SIZE);
+        buffer = Buffer.alloc(8 + this.BODY_SIZE);
 
     buffer.writeUInt32BE(this._keyValues[0], 0);
     buffer.writeUInt32BE(this._keyValues[1], 4);
-    new Buffer(this._body).copy(buffer, 8, 0, this.BODY_SIZE);
+    Buffer.alloc(this._body).copy(buffer, 8, 0, this.BODY_SIZE);
 
     md5.update(buffer);
-    return new Buffer(md5.digest('binary'), 'binary');
+    return Buffer.alloc(md5.digest('binary'), 'binary');
   },
 
   _sendHandshakeBody: function() {
